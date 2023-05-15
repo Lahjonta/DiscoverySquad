@@ -11,13 +11,19 @@ pd.set_option('display.max_columns', None)
 df.loc[0]['overview']
 df.columns
 
+
 # preprocess data
-# drop duplicates
+# drop movies that have a short description
 df['word_count'] = df['overview'].apply(lambda x: len(str(x).split()))
 df = df[df['word_count'] >= 20]
 df.drop('word_count', axis=1, inplace=True)
-df.drop_duplicates(inplace=True)
+
+# drop all duplicates
+df.drop_duplicates(subset=['title', 'release_date'], inplace=True)
 df.reset_index(drop=True, inplace=True)
+
+# Drop rows with missing poster_path
+df.dropna(subset=['poster_path'], inplace=True)
 
 # fill empty cells
 df.fillna(value={i: '' for i in ['overview', 'genres', 'keywords', 'credits']}, inplace=True)
@@ -73,10 +79,9 @@ def get_recommendation(user_input):
     fig.tight_layout()
     plt.show()
 
-user_input = "teenager love story set in a high school"
+user_input = "Twilight"
 
 get_recommendation(user_input)
-    
     
     
 
