@@ -1,83 +1,83 @@
 import pandas as pd
-import numpy as np
+import matplotlib.pyplot as plt
+import io
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from skimage import io
 
-# Read data
-## Movie titles and genres
-movies = pd.read_csv('ml-25m/movies.csv')
-print('Shape of this dataset :', movies.shape)
+# read the dataset https://www.kaggle.com/datasets/akshaypawar7/millions-of-movies
+df = pd.read_csv('movies.csv')
 pd.set_option('display.max_columns', None)
-movies.head()
+df.loc[0]['overview']
+df.columns
 
-## movie ratings
-ratings = pd.read_csv('ml-25m/ratings.csv')
-print('Shape of this dataset :', ratings.shape)
-ratings.head()
+# preprocess data
+# drop duplicates
+df['word_count'] = df['overview'].apply(lambda x: len(str(x).split()))
+df = df[df['word_count'] >= 20]
+df.drop('word_count', axis=1, inplace=True)
+df.drop_duplicates(inplace=True)
+df.reset_index(drop=True, inplace=True)
 
-## tags
-tags = pd.read_csv('ml-25m/tags.csv')
-print('Shape of this dataset :', tags.shape)
-tags.head()
+# fill empty cells
+df.fillna(value={i: '' for i in ['overview', 'genres', 'keywords', 'credits']}, inplace=True)
 
-# Data Preprocessing
-rate = ratings.copy()
-tag = tags.copy()
-titles = movies.copy()
-del rate['timestamp']
-del tag['timestamp']
+# lambda func for str split join
+strOp= lambda x: ' '.join(x.split('-'))
 
-## Separate the Years from titles
-year = titles['title'].str.findall('\((\d{4})\)').str.get(0)
-titles['Year'] = year
+# add keywords, genres and credits to overview for full information
+df.overview = df.overview + df.keywords.apply(strOp) + df.genres.apply(strOp) + df.credits.apply(lambda x: ' '.join(x.replace(' ', '').split('-')[:3]))
+df.overview[0]
 
-## Separate the genres in different columns and count genres
-genres = titles['genres'].str.split(pat='|', expand=True).fillna(0)
-genres.columns = ['genre1', 'genre2', 'genre3', 'genre4', 'genre5', 'genre6', 'genre7', 'genre8', 'genre9', 'genre10']
-cols = genres.columns
-genres[cols] = genres[cols].astype('category')
-genres1 = genres.copy()
-cat_columns = genres1.select_dtypes(['category']).columns
+# TF-IDF Vectorizer to transform words into numbers and remove common english words like 'the'
+tfidf = TfidfVectorizer(stop_words='english')
 
-#count genres(no zeros)
-genres1[cat_columns] = genres1[cat_columns].apply(lambda x: x.cat.codes)
-genres1['genre_count'] = genres1[cols].gt(0).sum(axis=1) #count > 0
+# transform data with TF-IDF vectorizer to create matrix
+tfidf_matrix = tfidf.fit_transform(df['overview'])
 
-#assign to dataframe
-titles['genre_count'] = genres1['genre_count']
-titles[cols] = genres[cols]
+'''
+#display some columns with vectorized words
+display(pd.DataFrame(
+    tfidf_matrix[:5, 10000:10005].toarray(),
+    columns= tfidf.get_feature_names_out()[10000:10005],
+    index = df.title[:5]).round())
 
-titles.head()
+print(tfidf_matrix.shape)
+# 974079 different words used to describe movies
+'''
 
-## Calculate average movie rating 
-rating_avg = rate.groupby('movieId')['rating'].mean().reset_index()
-rating_avg = pd.DataFrame(rating_avg)
+def get_recommendation(user_input):
+    # Vectorize user input
+    vectorized_input = tfidf.transform([user_input])
 
-rating_count = rate.groupby('movieId')['rating'].count().reset_index()
-rating_count = pd.DataFrame(rating_count)
-rating_count.rename({'rating': 'rating_count'}, axis=1, inplace=True)
+    # Calculate cosine similarity between user input and movie overviews
+    similarity_scores = cosine_similarity(vectorized_input, tfidf_matrix)
 
-movie_rating = rating_avg.merge(rating_count, on='movieId', how='inner')
+    # Get the indices of top similar movies
+    top_indices = similarity_scores.argsort()[0][::-1][:3]
+
+    # Retrieve the top recommended movies
+    recommended_movies = df.iloc[top_indices]
+
+    # Display movie posters for the recommended movies
+    fig, ax = plt.subplots(1, 3, figsize=(15, 20))
+    ax = ax.flatten()
+    for i, j in enumerate(recommended_movies.poster_path):
+        try:
+            ax[i].axis('off')
+            ax[i].set_title(recommended_movies.iloc[i].title, fontsize=22)
+            a = io.imread(f'https://image.tmdb.org/t/p/w500/{j}')
+            ax[i].imshow(a)
+        except:
+            pass
+    fig.tight_layout()
+    plt.show()
+
+user_input = "teenager love story set in a high school"
+
+get_recommendation(user_input)
+    
+    
+    
 
 
-## Collect the tags left by users for each movie
-### Load the tags data
-
-### Group the merged data by movieId and tag and count the number of occurrences
-grouped_tags = tags.groupby(['movieId', 'tag']).size().reset_index(name='count')
-
-### Filter out tags that occur less than 5 times
-grouped_tags = grouped_tags[grouped_tags['count'] >= 100]
-
-### Pivot the grouped data to create a matrix of movies and tags
-pivoted_df = grouped_tags.pivot_table(index='movieId', columns='tag', values='count', fill_value=0)
-
-### Rename the columns to remove spaces and convert to lowercase
-pivoted_df.columns = [col.lower().replace(' ', '_') for col in pivoted_df.columns]
-
-
-## Merge average ratings and tags with titles dataframe to create main table
-titles = titles.merge(movie_rating, on='movieId', how='inner')
-titles.rename({'rating': 'avg_rating'}, axis=1, inplace=True)
-titles = titles.merge(pivoted_df, on='movieId', how='inner')
-titles.head(3)
-
-## Save main table as .csv
