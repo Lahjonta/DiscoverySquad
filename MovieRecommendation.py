@@ -10,7 +10,7 @@ df = pd.read_csv('movies.csv')
 pd.set_option('display.max_columns', None)
 df.loc[0]['overview']
 df.columns
-
+# Test
 
 # preprocess data
 # drop movies that have a short description
