@@ -4,18 +4,18 @@ import io
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from skimage import io
+pd.set_option('display.max_colwidth', None)
 
 # read the dataset https://www.kaggle.com/datasets/akshaypawar7/millions-of-movies
 df = pd.read_csv('movies.csv')
 pd.set_option('display.max_columns', None)
 df.loc[0]['overview']
-df.columns
-
+df.loc[0]['popularity']
 
 # preprocess data
 # drop movies that have a short description
 df['word_count'] = df['overview'].apply(lambda x: len(str(x).split()))
-df = df[df['word_count'] >= 20]
+df = df[df['word_count'] >= 50]
 df.drop('word_count', axis=1, inplace=True)
 
 # drop all duplicates
@@ -78,11 +78,11 @@ def get_recommendation(user_input):
             pass
     fig.tight_layout()
     plt.show()
+    print(recommended_movies.overview)
 
-user_input = "Twilight"
+user_input = "marvel superhero fight action"
 
 get_recommendation(user_input)
-    
-    
+
 
 
