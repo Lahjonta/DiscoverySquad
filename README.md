@@ -18,6 +18,7 @@ Installation:
 
 1. Stellen Sie sicher, dass Python in Version 3.x auf Ihrem System installiert ist.
 2. Klonen Sie das Projekt-Repository von GitHub: https://github.com/Lahjonta/DiscoverySquad
+3. Der Datensatz ist auf https://www.kaggle.com/datasets/akshaypawar7/millions-of-movies zu finden.
 
 Abhängigkeiten/Pakete:
 
